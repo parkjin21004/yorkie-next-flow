@@ -2,10 +2,9 @@
 
 import type { Node, Edge } from "@xyflow/react";
 import { DocumentProvider, YorkieProvider, JSONArray } from "@yorkie-js/react";
-import FlowEditor, {
-  type Graph,
-} from "@/app/doc/[doc]/_components/flow-editor";
+import FlowEditor from "@/app/doc/[doc]/_components/flow-editor";
 import { useParams } from "next/navigation";
+import { Graph } from "./_components/types";
 
 const initialRoot: Graph = {
   nodes: [] as unknown as JSONArray<Node>,
