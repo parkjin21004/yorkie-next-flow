@@ -11,17 +11,26 @@ import {
   EdgeChange,
   Connection,
   MarkerType,
+  useReactFlow,
+  useViewport,
+  ReactFlowProvider,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useDocument } from "@yorkie-js/react";
+import { useDocument, usePresences } from "@yorkie-js/react";
 import { useCallback, useMemo } from "react";
 import { nodeTypes } from "./nodes";
 import FlowActions from "./flow-action";
 import InspectorPanel from "./inspector-panel";
 import type { Graph } from "./types";
 
+type PresenceData = { username?: string; cursor?: { x: number; y: number } };
+
 export default function FlowEditor() {
-  const { root, update, loading, error } = useDocument<Graph>();
+  const { doc, root, update, loading, error } = useDocument<
+    Graph,
+    PresenceData
+  >();
+  const presences = usePresences<PresenceData>();
 
   const nodes = useMemo(
     () => [...root.nodes].filter(Boolean) as Node[],
@@ -158,12 +167,73 @@ export default function FlowEditor() {
     [update]
   );
 
+  const onCursor = useCallback(
+    (pos: { x: number; y: number }) => {
+      update((_, presence) => {
+        presence.set({ cursor: pos });
+      });
+    },
+    [update]
+  );
+
   if (loading) return <div className="p-4">Loading...</div>;
   if (error)
     return <div className="p-4 text-red-600">Error: {error.message}</div>;
 
   return (
-    <div className="fixed inset-0 h-screen">
+    <ReactFlowProvider>
+      <FlowInner
+        doc={doc}
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onReconnect={onReconnect}
+        onNodeDragStop={onNodeDragStop}
+        onCursor={onCursor}
+        presences={presences}
+      />
+    </ReactFlowProvider>
+  );
+}
+
+function FlowInner({
+  doc,
+  nodes,
+  edges,
+  onNodesChange,
+  onEdgesChange,
+  onConnect,
+  onReconnect,
+  onNodeDragStop,
+  onCursor,
+  presences,
+}: {
+  doc: unknown;
+  nodes: Node[];
+  edges: Edge[];
+  onNodesChange: (c: Array<NodeChange>) => void;
+  onEdgesChange: (c: Array<EdgeChange>) => void;
+  onConnect: (c: Connection) => void;
+  onReconnect: (e: Edge, c: Connection) => void;
+  onNodeDragStop: (_: unknown, n: Node) => void;
+  onCursor: (p: { x: number; y: number }) => void;
+  presences: ReturnType<typeof usePresences<PresenceData>>;
+}) {
+  const { screenToFlowPosition } = useReactFlow();
+  const { x: viewportX, y: viewportY, zoom } = useViewport();
+
+  const onMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const point = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      onCursor({ x: point.x, y: point.y });
+    },
+    [onCursor, screenToFlowPosition]
+  );
+
+  return (
+    <div onMouseMove={onMouseMove} className="fixed inset-0 h-screen">
       <ReactFlow
         defaultEdgeOptions={{
           type: "bezier",
@@ -192,6 +262,43 @@ export default function FlowEditor() {
         <FlowActions />
         <InspectorPanel />
       </ReactFlow>
+      {/* Remote cursors overlay */}
+      {presences
+        .filter(({ clientID }) => {
+          type ClientLike =
+            | { getClientID?: () => string }
+            | { getClient?: () => { getID?: () => string } }
+            | undefined;
+          const d = doc as ClientLike;
+          const selfId =
+            (d && "getClientID" in d && typeof d.getClientID === "function"
+              ? d.getClientID()
+              : undefined) ??
+            (d && "getClient" in d && typeof d.getClient === "function"
+              ? d.getClient()?.getID?.()
+              : undefined);
+          return selfId ? clientID !== selfId : true;
+        })
+        .map(({ clientID, presence }) => {
+          const fx = presence?.cursor?.x;
+          const fy = presence?.cursor?.y;
+          if (typeof fx !== "number" || typeof fy !== "number") return null;
+          const sx = viewportX + fx * zoom;
+          const sy = viewportY + fy * zoom;
+          const name = presence?.username ?? "익명";
+          return (
+            <div
+              key={clientID}
+              className="pointer-events-none absolute"
+              style={{ left: sx, top: sy, transform: "translate(-50%, -100%)" }}
+            >
+              <div className="w-3 h-3 rounded-full bg-[var(--color-primary)] shadow-[var(--shadow-soft)]" />
+              <div className="mt-1 px-2 py-0.5 text-xs rounded bg-[color-mix(in_oklab,var(--color-primary)_10%,white_90%)] border border-[var(--color-border)] text-[var(--color-text)] whitespace-nowrap">
+                {name}
+              </div>
+            </div>
+          );
+        })}
     </div>
   );
 }

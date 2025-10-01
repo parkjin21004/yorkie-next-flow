@@ -16,14 +16,19 @@ function slugifyDocumentName(input: string): string {
 export default function DocForm() {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
 
   const onSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
       const key = slugifyDocumentName(name);
-      router.push(`/doc/${key}`);
+      const params = new URLSearchParams();
+      if (username.trim()) params.set("user", username.trim());
+      router.push(
+        `/doc/${key}${params.toString() ? `?${params.toString()}` : ""}`
+      );
     },
-    [name, router]
+    [name, username, router]
   );
 
   const baseBtn =
@@ -40,6 +45,13 @@ export default function DocForm() {
         value={name}
         onChange={(e) => setName(e.target.value)}
         className="flex-1 px-3 py-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)]"
+      />
+      <input
+        type="text"
+        placeholder="사용자 이름"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+        className="w-48 px-3 py-2 rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)]"
       />
       <button type="submit" className={`${btnPrimary} px-4 py-2`}>
         접속

@@ -49,6 +49,7 @@ export function useStableTextareaCaret(
 
   const domValueRef = useRef<string>(value);
   const extVersionRef = useRef(externalVersion);
+  const didMountRef = useRef(false);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
@@ -119,11 +120,14 @@ export function useStableTextareaCaret(
   }, [value, externalVersion, ignoreDuringComposition, isComposing]);
 
   useEffect(() => {
-    if (ref.current) {
-      ref.current.value = value;
-      domValueRef.current = value;
+    if (!didMountRef.current) {
+      if (ref.current) {
+        ref.current.value = value;
+        domValueRef.current = value;
+      }
+      didMountRef.current = true;
     }
-  }, []);
+  }, [value]);
 
   return {
     ref,

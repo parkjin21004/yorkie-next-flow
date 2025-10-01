@@ -3,7 +3,7 @@
 import type { Node, Edge } from "@xyflow/react";
 import { DocumentProvider, YorkieProvider, JSONArray } from "@yorkie-js/react";
 import FlowEditor from "@/app/doc/[doc]/_components/flow-editor";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { Graph } from "./_components/types";
 
 const initialRoot: Graph = {
@@ -13,6 +13,7 @@ const initialRoot: Graph = {
 
 export default function DocPage() {
   const params = useParams();
+  const search = useSearchParams();
   const apiKey = process.env.NEXT_PUBLIC_YORKIE_API_KEY;
   const rpcAddr = process.env.NEXT_PUBLIC_YORKIE_API_ADDR;
 
@@ -30,7 +31,11 @@ export default function DocPage() {
 
   return (
     <YorkieProvider apiKey={apiKey} rpcAddr={rpcAddr}>
-      <DocumentProvider docKey={params.doc as string} initialRoot={initialRoot}>
+      <DocumentProvider
+        docKey={params.doc as string}
+        initialRoot={initialRoot}
+        initialPresence={{ username: search.get("user") || "익명" }}
+      >
         <FlowEditor />
       </DocumentProvider>
     </YorkieProvider>
